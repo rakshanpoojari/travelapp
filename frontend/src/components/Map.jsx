@@ -1,38 +1,110 @@
-import { GoogleMap, useJsApiLoader, Polyline, Marker } from '@react-google-maps/api';
+import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-const containerStyle = { width: '100%', height: '600px' };
-
-// Keep libraries as a stable constant to avoid reloading the script
-const GOOGLE_MAP_LIBS = ['places'];
+// Fix Leaflet default icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 
 export default function Map({ center = { lat: 12.97, lng: 77.59 }, routes = [], vehicle }) {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY ?? '';
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const routeLayersRef = useRef([]);
+  const vehicleMarkerRef = useRef(null);
 
-  // Call hook unconditionally to preserve hook order
-  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: GOOGLE_MAP_LIBS });
+  // Initialize map
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
 
-  if (!apiKey) {
-    return (
-      <div style={{ color: 'red' }}>
-        Missing Google Maps key. Add <code>VITE_GOOGLE_MAPS_KEY=AIza...your-key...</code> to <code>frontend/.env</code> and restart the dev server.
-      </div>
-    );
-  }
+    const map = L.map(mapRef.current).setView([center.lat, center.lng], 13);
 
-  if (loadError) {
-    return <div style={{ color: 'red' }}>Map failed to load: {String(loadError)}</div>;
-  }
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map);
 
-  if (!isLoaded) return <div>Loading map..</div>;
+    mapInstanceRef.current = map;
+
+    return () => {
+      // Cleanup on unmount
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.off();
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update routes
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    // Clear previous route layers
+    routeLayersRef.current.forEach(layer => mapInstanceRef.current.removeLayer(layer));
+    routeLayersRef.current = [];
+
+    // Add new routes
+    routes.forEach((route, idx) => {
+      const path = route.overview_path || route.polylineDecoded || [];
+
+      if (path && path.length > 0) {
+        // Convert path to LatLng format
+        const latlngs = path.map(p => [p.lat || p[0], p.lng || p[1]]);
+
+        // Draw polyline
+        const polyline = L.polyline(latlngs, {
+          color: ['red', 'blue', 'green', 'purple', 'orange'][idx % 5],
+          weight: 4,
+          opacity: 0.8,
+        }).addTo(mapInstanceRef.current);
+
+        routeLayersRef.current.push(polyline);
+
+        // Add start and end markers
+        if (latlngs.length > 0) {
+          const startMarker = L.marker(latlngs[0], {
+            title: `Route ${idx + 1} Start`,
+          }).addTo(mapInstanceRef.current);
+
+          const endMarker = L.marker(latlngs[latlngs.length - 1], {
+            title: `Route ${idx + 1} End`,
+          }).addTo(mapInstanceRef.current);
+
+          routeLayersRef.current.push(startMarker, endMarker);
+        }
+      }
+    });
+  }, [routes]);
+
+  // Update vehicle position
+  useEffect(() => {
+    if (!mapInstanceRef.current || !vehicle) return;
+
+    if (!vehicleMarkerRef.current) {
+      vehicleMarkerRef.current = L.marker([vehicle.lat, vehicle.lng], {
+        title: 'Vehicle',
+        icon: L.icon({
+          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+        }),
+      }).addTo(mapInstanceRef.current);
+    } else {
+      vehicleMarkerRef.current.setLatLng([vehicle.lat, vehicle.lng]);
+    }
+  }, [vehicle]);
 
   return (
-    <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={13}>
-      {routes.map((r, i) => {
-        // expect r.polyline = encoded polyline or array of latlng
-        const path = r.overview_path || r.polylineDecoded || [];
-        return <Polyline key={i} path={path} options={{ strokeWeight: 4, clickable: false }} />;
-      })}
-      {vehicle && <Marker position={vehicle} />}
-    </GoogleMap>
+    <div
+      ref={mapRef}
+      style={{
+        width: '100%',
+        height: '100%',
+      }}
+    />
   );
 }

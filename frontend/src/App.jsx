@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import Map from './components/Map';
 import SearchBox from './components/SearchBox';
 import { io } from 'socket.io-client';
-import MapComponent from './components/MapComponent';
 import AIChatSidebar from './components/AIChatSidebar';
 
 function App(){
@@ -40,22 +39,36 @@ function App(){
   }, []);
 
   return (
-    <div>
-      <AIChatSidebar apiUrl="http://localhost:5000/api/deepseek" />
-      <SearchBox onRoutes={(r)=> setRoutes(r)} />
-      {socketStatus === 'disconnected' && (
-        <div style={{ color: 'orange', padding: 8 }}>
-          Not connected to realtime server. Start the backend at <code>http://localhost:5000</code> to enable live updates.
+    <div className="h-screen flex flex-col">
+      {/* Status bar */}
+      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-2 flex gap-4 items-center">
+        <h1 className="text-lg font-bold text-slate-800 dark:text-white">Multimodal Transportation</h1>
+        <div className="flex-1">
+          <SearchBox onRoutes={(r)=> setRoutes(r)} />
         </div>
-      )}
-      {socketStatus === 'error' && (
-        <div style={{ color: 'red', padding: 8 }}>
-          Unable to connect to realtime server (connection refused). Ensure backend is running and CORS/socket endpoint is reachable.
+        <div className="text-xs">
+          {socketStatus === 'connected' ? (
+            <span className="text-green-600">● Connected</span>
+          ) : socketStatus === 'error' ? (
+            <span className="text-red-600">● Error</span>
+          ) : (
+            <span className="text-orange-600">● Disconnected</span>
+          )}
         </div>
-      )}
-      <Map routes={routes} vehicle={vehicle} />
-       <h1 className="text-center text-3xl font-bold p-4">Multimodal Transportation App</h1>
-      <MapComponent />
+      </div>
+
+      {/* Main layout: sidebar + map */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left column: Sidebar */}
+        <div className="flex-none h-full">
+          <AIChatSidebar apiUrl="http://localhost:5000/api/gemini" />
+        </div>
+
+        {/* Right column: Full-height map */}
+        <main className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-900">
+          <Map routes={routes} vehicle={vehicle} />
+        </main>
+      </div>
     </div>
   );
 }

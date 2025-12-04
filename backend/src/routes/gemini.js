@@ -3,6 +3,8 @@ const router = express.Router();
 const axios = require('axios');
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
+// Allow overriding the model via env (use Gemini AI Studio model names)
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 if (!GEMINI_KEY) {
   console.warn('GEMINI_API_KEY not set in backend/.env');
 }
@@ -26,8 +28,9 @@ router.post('/gemini', async (req, res) => {
       parts: [{ text: m.text }]
     }));
 
-    // Call Google Gemini API (generativeai.google.com)
-    const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    // Call Google Gemini API (generativelanguage.googleapis.com)
+    // Use configured model (defaults to a Vertex AI model that supports generateContent)
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`;
 
     const payload = {
       contents: contents,

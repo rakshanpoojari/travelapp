@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/deepseek', storageKey = 'ai-chat-sidebar-history', maxContextMessages = 12 }) {
+export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemini', storageKey = 'ai-chat-sidebar-history', maxContextMessages = 12 }) {
   // messages: { role: 'user'|'assistant'|'system', text: string, id: string, ts: number }
   const [messages, setMessages] = useState(() => {
     try {
@@ -15,7 +15,7 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/deep
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState(null);
-  const [position, setPosition] = useState({ x: -20, y: 80 });
+  const [position, setPosition] = useState({ x: 20, y: 80 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const containerRef = useRef(null);
@@ -56,12 +56,12 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/deep
       const newX = e.clientX - dragOffset.x;
       const newY = e.clientY - dragOffset.y;
       
-      // constrain to viewport
+      // constrain to viewport (left-docked UX)
       const maxX = window.innerWidth - 400;
       const maxY = window.innerHeight - 200;
       
       setPosition({
-        x: Math.max(-20, Math.min(newX, maxX)),
+        x: Math.max(0, Math.min(newX, maxX)),
         y: Math.max(0, Math.min(newY, maxY))
       });
     };
@@ -145,13 +145,8 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/deep
   return (
     <aside
       ref={containerRef}
-      className="fixed z-50 w-96 max-w-[90vw] h-[70vh] bg-white dark:bg-slate-800 shadow-2xl rounded-xl flex flex-col overflow-hidden"
-      style={{
-        transform: `translate(${position.x}px, ${position.y}px)`,
-        cursor: isDragging ? 'grabbing' : 'default',
-        left: '0',
-        top: '0'
-      }}
+      className="w-96 max-w-[90vw] h-full min-h-0 bg-slate-900 text-white shadow-2xl rounded-xl flex flex-col overflow-hidden"
+      style={{ cursor: isDragging ? 'grabbing' : 'default' }}
     >
       {/* Header / drag handle */}
       <div
@@ -186,15 +181,15 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/deep
       </div>
 
       {/* Conversation area */}
-      <div className="flex-1 overflow-auto p-3 bg-white dark:bg-slate-900">
+      <div className="flex-1 overflow-auto p-3 bg-slate-900 text-white">
         <div className="flex flex-col gap-3">
           {messages.length === 0 && (
-            <div className="text-sm text-slate-500">Say hi — your conversation will be saved locally.</div>
+            <div className="text-sm text-slate-300">Say hi — your conversation will be saved locally.</div>
           )}
 
           {messages.map(m => (
             <div key={m.id} className={`max-w-full break-words ${m.role === 'user' ? 'self-end text-right' : 'self-start text-left'}`}>
-              <div className={`${m.role === 'user' ? 'inline-block bg-sky-100 dark:bg-sky-700 text-sky-900 dark:text-white rounded-xl px-3 py-2' : 'inline-block bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl px-3 py-2'}`}>
+              <div className={`${m.role === 'user' ? 'inline-block bg-sky-600 text-white rounded-xl px-3 py-2' : 'inline-block bg-slate-700 text-white rounded-xl px-3 py-2'}`}>
                 <div className="whitespace-pre-wrap">{m.text}</div>
               </div>
             </div>
@@ -204,7 +199,7 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/deep
       </div>
 
       {/* Footer input area */}
-      <div className="px-3 py-2 bg-gray-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
+      <div className="px-3 py-2 bg-slate-800 border-t border-slate-700">
         <div className="flex items-end gap-2">
           <textarea
             aria-label="Type a message"
@@ -212,7 +207,7 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/deep
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={isSending ? 'Waiting for response...' : 'Type a message — Enter to send, Shift+Enter for newline'}
-            className="flex-1 min-h-[42px] max-h-36 resize-none rounded-md px-3 py-2 shadow-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none"
+            className="flex-1 min-h-[42px] max-h-36 resize-none rounded-md px-3 py-2 shadow-sm border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none"
           />
           <div className="flex flex-col gap-2">
             <button

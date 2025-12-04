@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 const routes = require('./routes/routes');
 const deepseekRouter = require('./routes/deepseek');
+const geminiRouter = require('./routes/gemini');
 
 const app = express();
 app.use(cors());
@@ -13,6 +14,7 @@ app.use(express.json());
 
 app.use('/api', routes);
 app.use('/api', deepseekRouter);
+app.use('/api', geminiRouter);
 
 // quick health endpoint for frontend/dev checks
 app.get('/health', (req, res) => {
