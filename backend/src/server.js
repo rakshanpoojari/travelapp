@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const routes = require('./routes/routes');
 const deepseekRouter = require('./routes/deepseek');
 const geminiRouter = require('./routes/gemini');
+const transportationRouter = require('./routes/transportation');
 
 const app = express();
 app.use(cors());
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/api', routes);
 app.use('/api', deepseekRouter);
 app.use('/api', geminiRouter);
+app.use('/api', transportationRouter);
 
 // quick health endpoint for frontend/dev checks
 app.get('/health', (req, res) => {

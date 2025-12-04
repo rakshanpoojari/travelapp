@@ -158,8 +158,8 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3-3 3 3m0 6l-3 3-3-3" />
           </svg>
-          <span className="font-semibold">AI Chat</span>
-          <span className="ml-1 text-xs opacity-80">(DeepSeek)</span>
+          <span className="font-semibold">Ask Doubts</span>
+          <span className="ml-1 text-xs opacity-80"></span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={clearHistory} title="Clear conversation" className="text-sm opacity-90 hover:opacity-100">Clear</button>

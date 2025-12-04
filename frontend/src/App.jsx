@@ -3,11 +3,14 @@ import Map from './components/Map';
 import SearchBox from './components/SearchBox';
 import { io } from 'socket.io-client';
 import AIChatSidebar from './components/AIChatSidebar';
+import SelectedModePanel from './components/SelectedModePanel';
 
 function App(){
   const [routes, setRoutes] = useState([]);
   const [vehicle, setVehicle] = useState(null);
   const [socketStatus, setSocketStatus] = useState('disconnected');
+  const [locations, setLocations] = useState({ origin: null, destination: null });
+  const [selectedMode, setSelectedMode] = useState(null);
   const socketRef = useRef(null);
 
   // initialize socket inside effect to avoid top-level connection attempts
@@ -41,10 +44,17 @@ function App(){
   return (
     <div className="h-screen flex flex-col">
       {/* Status bar */}
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-2 flex gap-4 items-center">
+      <div className="relative z-[9998] bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-2 flex gap-4 items-center">
         <h1 className="text-lg font-bold text-slate-800 dark:text-white">Multimodal Transportation</h1>
         <div className="flex-1">
-          <SearchBox onRoutes={(r)=> setRoutes(r)} />
+          <SearchBox 
+            onRoutes={(r)=> setRoutes(r)} 
+            onLocationsChange={(loc) => setLocations(loc)}
+            onSelectMode={(option) => {
+              console.log('App: Setting selected mode:', option);
+              setSelectedMode(option);
+            }}
+          />
         </div>
         <div className="text-xs">
           {socketStatus === 'connected' ? (
@@ -65,8 +75,12 @@ function App(){
         </div>
 
         {/* Right column: Full-height map */}
-        <main className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-900">
-          <Map routes={routes} vehicle={vehicle} />
+        <main className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-900 relative">
+          <Map routes={routes} vehicle={vehicle} locations={locations} selectedMode={selectedMode} />
+          <SelectedModePanel 
+            selectedOption={selectedMode} 
+            onClose={() => setSelectedMode(null)}
+          />
         </main>
       </div>
     </div>
