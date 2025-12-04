@@ -5,12 +5,14 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 const routes = require('./routes/routes');
+const deepseekRouter = require('./routes/deepseek');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.use('/api', routes);
+app.use('/api', deepseekRouter);
 
 // quick health endpoint for frontend/dev checks
 app.get('/health', (req, res) => {

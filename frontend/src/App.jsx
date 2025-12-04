@@ -3,6 +3,7 @@ import Map from './components/Map';
 import SearchBox from './components/SearchBox';
 import { io } from 'socket.io-client';
 import MapComponent from './components/MapComponent';
+import AIChatSidebar from './components/AIChatSidebar';
 
 function App(){
   const [routes, setRoutes] = useState([]);
@@ -40,6 +41,7 @@ function App(){
 
   return (
     <div>
+      <AIChatSidebar apiUrl="http://localhost:5000/api/deepseek" />
       <SearchBox onRoutes={(r)=> setRoutes(r)} />
       {socketStatus === 'disconnected' && (
         <div style={{ color: 'orange', padding: 8 }}>
