@@ -1,5 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+const BUS_ROUTE_AGENT_PROMPT = `
+System Overview:
+You are an AI agent designed to assist users in planning bus journeys from a source location to a destination. The key concept is that for many routes—especially long-distance ones—a single bus may not cover the entire path. In such cases, the journey must be broken down into multiple segments (legs), each handled by a different bus or transfer, with details on stations, prices, and travel times.
+
+Step-by-Step Process for Handling User Queries:
+
+1. Input Collection:
+   - Prompt the user to enter their source location (starting point) and destination location (ending point).
+   - Validate the inputs to ensure they are valid locations (e.g., cities, addresses, or landmarks). If invalid, ask for clarification.
+
+2. Transportation Mode Selection:
+   - Ask the user for their preferred mode of transport or suggest "bus" if that's your specialty.
+   - If they agree to bus, proceed.
+
+3. Route Analysis and Core Concept:
+   - Check if a single direct bus exists that can take the user from the source to the destination without transfers.
+   - If a direct bus is available, provide its details (e.g., schedule, price, duration).
+   - If no single bus covers the entire route (common for long distances), inform the user clearly: "No direct bus is available for this route. We'll break it down into multiple segments with transfers for a complete journey."
+
+4. Path Breakdown and Segmentation:
+   - Describe the full path from source to destination.
+   - Divide the path into logical segments: Each segment goes from one bus station (or stop) to the next, requiring a bus change or transfer.
+   - For each segment, provide:
+     - Starting station and ending station for that leg.
+     - Bus options (e.g., bus number, operator).
+     - Price for that segment (e.g., ticket cost in local currency).
+     - Estimated time to complete that segment.
+     - Any transfer instructions (e.g., "Transfer at Station X and wait 15 minutes for the next bus").
+
+5. Output Presentation:
+   - Summarize the total journey: Overall time, total price, number of transfers, and any tips.
+   - Use a clear, tabular format for segments if possible.
+   - Handle edge cases: If the destination is too far or no viable route exists, suggest alternatives.
+
+Guidelines for Clarity and User Experience:
+- Always explain terms (e.g., "segment").
+- Avoid confusion by using simple language.
+- If the user asks for modifications, re-run the process with updated criteria.
+`;
+
 export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemini', storageKey = 'ai-chat-sidebar-history', maxContextMessages = 12 }) {
   // messages: { role: 'user'|'assistant'|'system', text: string, id: string, ts: number }
   const [messages, setMessages] = useState(() => {
@@ -55,11 +95,11 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
       if (!isDragging) return;
       const newX = e.clientX - dragOffset.x;
       const newY = e.clientY - dragOffset.y;
-      
+
       // constrain to viewport (left-docked UX)
       const maxX = window.innerWidth - 400;
       const maxY = window.innerHeight - 200;
-      
+
       setPosition({
         x: Math.max(0, Math.min(newX, maxX)),
         y: Math.max(0, Math.min(newY, maxY))
@@ -82,7 +122,7 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
   }, [isDragging, dragOffset, position]);
 
   function generateId() {
-    return `${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   }
 
   function appendMessage(msg) {
@@ -99,7 +139,13 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
     setInput('');
 
     // prepare context: last N messages (including system)
-    const context = [...messages, userMsg].slice(-maxContextMessages);
+    let context = [...messages, userMsg].slice(-maxContextMessages);
+
+    // Ensure the system prompt is present if not already
+    const hasSystemPrompt = context.some(m => m.role === 'system');
+    if (!hasSystemPrompt) {
+      context = [{ role: 'system', text: BUS_ROUTE_AGENT_PROMPT }, ...context];
+    }
 
     try {
       const resp = await fetch(apiUrl, {
@@ -158,8 +204,8 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3-3 3 3m0 6l-3 3-3-3" />
           </svg>
-          <span className="font-semibold">Ask Doubts</span>
-          <span className="ml-1 text-xs opacity-80"></span>
+          <span className="font-semibold">Bus Route Planner</span>
+          <span className="ml-1 text-xs opacity-80">Agent</span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={clearHistory} title="Clear conversation" className="text-sm opacity-90 hover:opacity-100 hover:bg-white/20 px-2 py-1 rounded transition-all duration-200">Clear</button>
@@ -184,12 +230,15 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
       <div className="flex-1 overflow-auto p-3 bg-white/5 backdrop-blur-sm text-white">
         <div className="flex flex-col gap-3">
           {messages.length === 0 && (
-            <div className="text-sm text-slate-300">Say hi — your conversation will be saved locally.</div>
+            <div className="text-sm text-slate-300">
+              <p>Hello! I can help you plan your bus journeys, especially multi-segment routes.</p>
+              <p className="mt-1">Where would you like to go?</p>
+            </div>
           )}
 
           {messages.map(m => (
             <div key={m.id} className={`max-w-full break-words animate-fade-in ${m.role === 'user' ? 'self-end text-right' : 'self-start text-left'}`}>
-              <div className={`${m.role === 'user' ? 'inline-block bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl px-3 py-2 shadow-lg' : 'inline-block bg-gradient-to-r from-slate-600 to-slate-800 text-white rounded-xl px-3 py-2 shadow-lg'}`}>
+              <div className={`${m.role === 'user' ? 'inline-block bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl px-3 py-2 shadow-lg' : m.role === 'system' ? 'inline-block bg-slate-700 text-xs text-slate-300 rounded-lg px-2 py-1' : 'inline-block bg-gradient-to-r from-slate-600 to-slate-800 text-white rounded-xl px-3 py-2 shadow-lg'}`}>
                 <div className="whitespace-pre-wrap">{m.text}</div>
               </div>
             </div>
@@ -206,7 +255,7 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={isSending ? 'Waiting for response...' : 'Type a message — Enter to send, Shift+Enter for newline'}
+            placeholder={isSending ? 'Waiting for response...' : 'Type your source and destination...'}
             className="flex-1 min-h-[42px] max-h-36 resize-none rounded-md px-3 py-2 shadow-sm border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none"
           />
           <div className="flex flex-col gap-2">
@@ -215,10 +264,9 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
               onClick={() => sendMessage(input)}
               className="px-3 py-2 rounded-md bg-indigo-600 text-white text-sm disabled:opacity-50"
             >{isSending ? 'Sending...' : 'Send'}</button>
-            <button title="Insert system prompt" onClick={() => {
-              const systemPrompt = "You are a helpful assistant for my travel web app. Keep answers short and provide links where relevant.";
-              appendMessage({ role: 'system', text: systemPrompt, id: generateId(), ts: Date.now() });
-            }} className="text-xs opacity-80">Add system</button>
+            <button title="Reset with detailed prompt" onClick={() => {
+              appendMessage({ role: 'system', text: BUS_ROUTE_AGENT_PROMPT, id: generateId(), ts: Date.now() });
+            }} className="text-xs opacity-80">Reset System</button>
           </div>
         </div>
         {error && <div className="text-xs text-red-500 mt-2">{error}</div>}
@@ -226,3 +274,4 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
     </aside>
   );
 }
+

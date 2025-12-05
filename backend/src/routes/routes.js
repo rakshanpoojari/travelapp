@@ -31,7 +31,7 @@ function convertORSResponse(orsData, origin, destination) {
     const geometry = feature.geometry;
     const coordinates = geometry.coordinates; // [lng, lat] format
     const properties = feature.properties;
-    
+
     // Convert coordinates to [lat, lng] format and create overview_path
     const overview_path = coordinates.map(coord => ({
       lat: coord[1],
@@ -39,11 +39,11 @@ function convertORSResponse(orsData, origin, destination) {
     }));
 
     // Calculate distance and duration
-    const distance = properties.segments ? 
-      properties.segments.reduce((sum, seg) => sum + (seg.distance || 0), 0) : 
+    const distance = properties.segments ?
+      properties.segments.reduce((sum, seg) => sum + (seg.distance || 0), 0) :
       (properties.summary?.distance || 0);
-    const duration = properties.segments ? 
-      properties.segments.reduce((sum, seg) => sum + (seg.duration || 0), 0) : 
+    const duration = properties.segments ?
+      properties.segments.reduce((sum, seg) => sum + (seg.duration || 0), 0) :
       (properties.summary?.duration || 0);
 
     return {
@@ -81,7 +81,7 @@ router.get('/directions', async (req, res) => {
   const { origin, destination, mode } = req.query;
 
   try {
-    
+
     if (!origin || !destination) {
       return res.status(400).json({ error: 'origin and destination are required' });
     }
@@ -91,11 +91,11 @@ router.get('/directions', async (req, res) => {
     try {
       const [originLat, originLng] = origin.split(',').map(parseFloat);
       const [destLat, destLng] = destination.split(',').map(parseFloat);
-      
+
       if (isNaN(originLat) || isNaN(originLng) || isNaN(destLat) || isNaN(destLng)) {
         throw new Error('Invalid coordinates');
       }
-      
+
       originCoords = [originLng, originLat]; // OpenRouteService uses [lng, lat]
       destCoords = [destLng, destLat];
     } catch (e) {
@@ -103,12 +103,12 @@ router.get('/directions', async (req, res) => {
     }
 
     const profile = mapModeToProfile(mode || 'driving');
-    
+
     // Use OpenRouteService (free, no billing required)
     // If no API key, use OSRM as fallback (completely free, no key needed)
     if (OPENROUTESERVICE_KEY) {
       const orsUrl = `https://api.openrouteservice.org/v2/directions/${profile}`;
-      
+
       const orsResponse = await axios.post(orsUrl, {
         coordinates: [originCoords, destCoords],
         format: 'geojson'
@@ -126,26 +126,26 @@ router.get('/directions', async (req, res) => {
       // Fallback to OSRM (Open Source Routing Machine) - completely free, no API key needed
       // Map profile to OSRM service names
       const osrmProfileMap = {
-        'driving-car': 'driving',
-        'foot-walking': 'walking',
-        'cycling-regular': 'cycling'
+        'driving-car': 'car',
+        'foot-walking': 'foot',
+        'cycling-regular': 'bike'
       };
-      const osrmProfile = osrmProfileMap[profile] || 'driving';
+      const osrmProfile = osrmProfileMap[profile] || 'car';
       const osrmUrl = `https://routing.openstreetmap.de/routed-${osrmProfile}/route/v1/${osrmProfile}/${originCoords[0]},${originCoords[1]};${destCoords[0]},${destCoords[1]}?overview=full&geometries=geojson`;
-      
+
       try {
         const osrmResponse = await axios.get(osrmUrl, { timeout: 30000 });
-        
+
         if (osrmResponse.data.code === 'Ok' && osrmResponse.data.routes && osrmResponse.data.routes.length > 0) {
           const osrmRoute = osrmResponse.data.routes[0];
           const geometry = osrmRoute.geometry;
-          
+
           // Convert OSRM response to Google Directions format
           const overview_path = geometry.coordinates.map(coord => ({
             lat: coord[1], // OSRM uses [lng, lat]
             lng: coord[0]
           }));
-          
+
           const convertedResponse = {
             status: 'OK',
             routes: [{
@@ -168,7 +168,7 @@ router.get('/directions', async (req, res) => {
               summary: `${(osrmRoute.distance / 1000).toFixed(1)} km, ${Math.round(osrmRoute.duration / 60)} mins`
             }]
           };
-          
+
           return res.json(convertedResponse);
         } else {
           return res.status(404).json({ status: 'ZERO_RESULTS', routes: [] });
@@ -206,13 +206,13 @@ router.get('/directions', async (req, res) => {
 
 // Save/Load favorite routes (pseudo)
 const Route = require('../models/Route');
-router.post('/routes', async (req,res) => {
+router.post('/routes', async (req, res) => {
   const doc = new Route(req.body);
   await doc.save();
   res.json(doc);
 });
-router.get('/routes', async (req,res) => {
-  const list = await Route.find().sort({createdAt:-1}).limit(50);
+router.get('/routes', async (req, res) => {
+  const list = await Route.find().sort({ createdAt: -1 }).limit(50);
   res.json(list);
 });
 

@@ -149,34 +149,58 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
     // Clear suggestions when search is clicked
     setOriginSuggestions([]);
     setDestSuggestions([]);
-    
-    // Check if both origin and destination are selected
-    if (!originSelected || !destSelected) {
-      alert('Please select both source and destination from the suggestions');
-      return;
-    }
-    
+
+    // Auto-select first suggestion if text is present but not selected
+    let effectiveOrigin = originSelected;
+    let effectiveDest = destSelected;
+
     const originText = originRef.current?.value || originQuery;
     const destText = destRef.current?.value || destQuery;
 
+    if (!effectiveOrigin && originText) {
+      const suggestions = await nominatimSearch(originText);
+      if (suggestions.length > 0) {
+        const s = suggestions[0];
+        effectiveOrigin = { lat: s.lat, lng: s.lon || s.lng, label: s.label };
+        // Don't update state/UI to avoid flicker, just use for search
+        console.log('Auto-selected origin:', effectiveOrigin);
+      }
+    }
+
+    if (!effectiveDest && destText) {
+      const suggestions = await nominatimSearch(destText);
+      if (suggestions.length > 0) {
+        const s = suggestions[0];
+        effectiveDest = { lat: s.lat, lng: s.lon || s.lng, label: s.label };
+        console.log('Auto-selected destination:', effectiveDest);
+      }
+    }
+
+    if (!effectiveOrigin || !effectiveDest) {
+      alert('Please select valid locations for source and destination');
+      return;
+    }
+
     // Use lat/lng if available for better routing; fall back to text
     // Handle both 'lng' and 'lon' properties
-    const originLng = originSelected?.lng || originSelected?.lon;
-    const destLng = destSelected?.lng || destSelected?.lon;
-    
-    const originParam = (originSelected && originSelected.lat && originLng) 
-      ? `${originSelected.lat},${originLng}` 
+    const originLng = effectiveOrigin?.lng || effectiveOrigin?.lon;
+    const destLng = effectiveDest?.lng || effectiveDest?.lon;
+
+    // Always use coordinates if we have them (which we should now)
+    const originParam = (effectiveOrigin && effectiveOrigin.lat && originLng)
+      ? `${effectiveOrigin.lat},${originLng}`
       : originText;
-    const destParam = (destSelected && destSelected.lat && destLng) 
-      ? `${destSelected.lat},${destLng}` 
+    const destParam = (effectiveDest && effectiveDest.lat && destLng)
+      ? `${effectiveDest.lat},${destLng}`
       : destText;
 
     // Fetch transportation options and show popup
     setIsLoadingTransport(true);
     setShowTransportPopup(true);
-    
+
+    let options = [];
     try {
-      const options = await getTransportationOptions(originSelected, destSelected);
+      options = await getTransportationOptions(effectiveOrigin, effectiveDest);
       setTransportOptions(options);
     } catch (error) {
       console.error('Failed to fetch transportation options:', error);
@@ -186,12 +210,61 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
     }
 
     // Also fetch route directions for map
-    const modes = ['driving','transit','bicycling','walking'];
-    const promises = modes.map(m => API.get(`/directions?origin=${encodeURIComponent(originParam)}&destination=${encodeURIComponent(destParam)}&mode=${m}`));
+    const modes = ['driving', 'transit', 'bicycling', 'walking'];
+
+    // Check for multi-segment bus option to enhance transit visualization
+    const multiSegmentOption = options.find(o => o.type === 'multi-segment' && o.mode === 'bus');
+
+    const fetchDirections = async (mode) => {
+      // Special handling for multi-segment transit
+      if (mode === 'transit' && multiSegmentOption && multiSegmentOption.segments) {
+        try {
+          console.log('Fetching multi-segment transit route:', multiSegmentOption.segments);
+          // Fetch directions for each segment specifically
+          const segmentPromises = multiSegmentOption.segments.map(seg => {
+            // Use segment cities as queries name
+            return API.get(`/directions?origin=${encodeURIComponent(seg.from)}&destination=${encodeURIComponent(seg.to)}&mode=driving`); // Use driving for bus segments
+          });
+
+          const segmentResults = await Promise.all(segmentPromises);
+
+          // Combine segments into one route object
+          // Filter successfully fetched segments
+          const validSegments = segmentResults.filter(r => r.data && r.data.status === 'OK');
+
+          if (validSegments.length > 0) {
+            const combinedRoute = {
+              status: 'OK',
+              routes: [{
+                overview_path: validSegments.flatMap(r => r.data.routes[0].overview_path),
+                legs: validSegments.flatMap(r => r.data.routes[0].legs),
+                bounds: {
+                  northeast: validSegments[0].data.routes[0].bounds?.northeast || {},
+                  southwest: validSegments[validSegments.length - 1].data.routes[0].bounds?.southwest || {}
+                },
+                summary: multiSegmentOption.segments.map(s => `${s.from} -> ${s.to}`).join(', ')
+              }]
+            };
+            return { mode: 'transit', data: combinedRoute };
+          }
+        } catch (err) {
+          console.error('Failed to fetch individual segments, falling back to direct route', err);
+        }
+      }
+
+      // Default behavior
+      try {
+        const r = await API.get(`/directions?origin=${encodeURIComponent(originParam)}&destination=${encodeURIComponent(destParam)}&mode=${mode}`);
+        return { mode, data: r.data };
+      } catch (e) {
+        console.error(`Directions fetch failed for ${mode}`, e);
+        return { mode, data: { status: 'ZERO_RESULTS', routes: [] } };
+      }
+    };
+
     try {
-      const results = await Promise.all(promises);
-      const mapped = results.map((r,i)=> ({ mode: modes[i], data: r.data }));
-      onRoutes(mapped);
+      const results = await Promise.all(modes.map(m => fetchDirections(m)));
+      onRoutes(results);
     } catch (e) {
       console.error('Directions fetch failed', e);
       onRoutes([]);
@@ -205,8 +278,8 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
           <input
             ref={originRef}
             value={originQuery}
-            onChange={(e)=>{ 
-              setOriginQuery(e.target.value); 
+            onChange={(e) => {
+              setOriginQuery(e.target.value);
               setOriginSelected(null);
               // Clear origin location when user types
               if (onLocationsChange) {
@@ -237,8 +310,8 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
           {originSuggestions.length > 0 && (
             <ul className="absolute z-[10001] left-0 right-0 mt-1 bg-white border border-slate-200 max-h-48 overflow-auto rounded shadow-lg">
               {originSuggestions.map((s, idx) => (
-                <li 
-                  key={idx} 
+                <li
+                  key={idx}
                   onMouseDown={(e) => {
                     e.preventDefault(); // Prevent input blur
                     e.stopPropagation(); // Stop event bubbling
@@ -265,8 +338,8 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
           <input
             ref={destRef}
             value={destQuery}
-            onChange={(e)=>{ 
-              setDestQuery(e.target.value); 
+            onChange={(e) => {
+              setDestQuery(e.target.value);
               setDestSelected(null);
               // Clear destination location when user types
               if (onLocationsChange) {
@@ -297,8 +370,8 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
           {destSuggestions.length > 0 && (
             <ul className="absolute z-[10001] left-0 right-0 mt-1 bg-white border border-slate-200 max-h-48 overflow-auto rounded shadow-lg">
               {destSuggestions.map((s, idx) => (
-                <li 
-                  key={idx} 
+                <li
+                  key={idx}
                   onMouseDown={(e) => {
                     e.preventDefault(); // Prevent input blur
                     e.stopPropagation(); // Stop event bubbling
@@ -323,7 +396,7 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
 
         <button onClick={search} className="bg-indigo-600 text-white px-3 py-2 rounded">Search</button>
       </div>
-      
+
       {/* Transportation Options Popup */}
       <TransportationOptionsPopup
         isOpen={showTransportPopup}
