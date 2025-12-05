@@ -6,6 +6,62 @@ const MAPMYINDIA_KEY = process.env.MAPMYINDIA_API_KEY;
 const RAILWAY_API_KEY = process.env.RAILWAY_API_KEY; // From RailwayAPI.com or RapidAPI
 const SKYSCANNER_KEY = process.env.SKYSCANNER_API_KEY;
 
+// Mock bus route graph for Karnataka (India) - in production, this would come from GTFS data
+const BUS_ROUTE_GRAPH = {
+  // Major cities and their direct bus connections
+  "Bengaluru": ["Nelamangala", "Kunigal", "Hassan", "Mysuru", "Tumkur"],
+  "Nelamangala": ["Bengaluru", "Kunigal"],
+  "Kunigal": ["Nelamangala", "Bengaluru", "Hassan"],
+  "Hassan": ["Kunigal", "Bengaluru", "Sakleshpur", "Mangalore"],
+  "Sakleshpur": ["Hassan", "Uppinangady"],
+  "Uppinangady": ["Sakleshpur", "Mangalore"],
+  "Mangalore": ["Uppinangady", "Hassan", "Udupi"],
+  "Mysuru": ["Bengaluru", "Mandya"],
+  "Mandya": ["Mysuru", "Bengaluru"],
+  "Tumkur": ["Bengaluru", "Chitradurga"],
+  "Chitradurga": ["Tumkur", "Davangere"],
+  "Davangere": ["Chitradurga", "Hubli"],
+  "Hubli": ["Davangere", "Belgaum"],
+  "Belgaum": ["Hubli", "Pune"],
+  "Udupi": ["Mangalore", "Manipal"]
+};
+
+// Mock fare chart (₹ per km) - in production, this would come from fare_rules.txt
+const BUS_FARE_CHART = {
+  "Bengaluru-Nelamangala": 40,
+  "Nelamangala-Kunigal": 50,
+  "Kunigal-Hassan": 80,
+  "Hassan-Sakleshpur": 60,
+  "Sakleshpur-Uppinangady": 80,
+  "Uppinangady-Mangalore": 100,
+  "Bengaluru-Mysuru": 120,
+  "Mysuru-Mandya": 40,
+  "Bengaluru-Tumkur": 60,
+  "Tumkur-Chitradurga": 70,
+  "Chitradurga-Davangere": 80,
+  "Davangere-Hubli": 90,
+  "Hubli-Belgaum": 100,
+  "Mangalore-Udupi": 50
+};
+
+// Bus service details
+const BUS_SERVICES = {
+  "Bengaluru-Nelamangala": { name: "KSRTC 101", operator: "KSRTC" },
+  "Nelamangala-Kunigal": { name: "KSRTC 102", operator: "KSRTC" },
+  "Kunigal-Hassan": { name: "KSRTC 121", operator: "KSRTC" },
+  "Hassan-Sakleshpur": { name: "KSRTC 88", operator: "KSRTC" },
+  "Sakleshpur-Uppinangady": { name: "Private 33", operator: "Private" },
+  "Uppinangady-Mangalore": { name: "KSRTC 42", operator: "KSRTC" },
+  "Bengaluru-Mysuru": { name: "KSRTC 201", operator: "KSRTC" },
+  "Mysuru-Mandya": { name: "KSRTC 202", operator: "KSRTC" },
+  "Bengaluru-Tumkur": { name: "KSRTC 301", operator: "KSRTC" },
+  "Tumkur-Chitradurga": { name: "KSRTC 302", operator: "KSRTC" },
+  "Chitradurga-Davangere": { name: "KSRTC 303", operator: "KSRTC" },
+  "Davangere-Hubli": { name: "KSRTC 304", operator: "KSRTC" },
+  "Hubli-Belgaum": { name: "KSRTC 305", operator: "KSRTC" },
+  "Mangalore-Udupi": { name: "KSRTC 401", operator: "KSRTC" }
+};
+
 // Calculate distance between two points (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Radius of the Earth in km
@@ -29,6 +85,144 @@ function estimateCrowdLevel() {
     return 'free';
   } else {
     return 'moderate';
+  }
+}
+
+// Find bus route using BFS (Breadth-First Search)
+function findBusRoute(originCity, destinationCity) {
+  if (!BUS_ROUTE_GRAPH[originCity] || !BUS_ROUTE_GRAPH[destinationCity]) {
+    return null; // No route data available
+  }
+
+  if (originCity === destinationCity) {
+    return [originCity]; // Same city
+  }
+
+  const queue = [[originCity]];
+  const visited = new Set([originCity]);
+
+  while (queue.length > 0) {
+    const currentPath = queue.shift();
+    const currentCity = currentPath[currentPath.length - 1];
+
+    if (currentCity === destinationCity) {
+      return currentPath;
+    }
+
+    const neighbors = BUS_ROUTE_GRAPH[currentCity] || [];
+    for (const neighbor of neighbors) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push([...currentPath, neighbor]);
+      }
+    }
+  }
+
+  return null; // No route found
+}
+
+// Calculate fare for a specific segment
+function calculateSegmentFare(fromCity, toCity) {
+  const key = `${fromCity}-${toCity}`;
+  const reverseKey = `${toCity}-${fromCity}`;
+
+  // Check both directions
+  return BUS_FARE_CHART[key] || BUS_FARE_CHART[reverseKey] || 50; // Default fare
+}
+
+// Get bus service details for a segment
+function getBusService(fromCity, toCity) {
+  const key = `${fromCity}-${toCity}`;
+  const reverseKey = `${toCity}-${fromCity}`;
+
+  return BUS_SERVICES[key] || BUS_SERVICES[reverseKey] || {
+    name: "Local Bus",
+    operator: "Private"
+  };
+}
+
+// Estimate time for a segment (mock calculation)
+function estimateSegmentTime(fromCity, toCity) {
+  // Mock distance-based time calculation (30-60 km/h average speed)
+  const mockDistances = {
+    "Bengaluru-Nelamangala": 25,
+    "Nelamangala-Kunigal": 35,
+    "Kunigal-Hassan": 45,
+    "Hassan-Sakleshpur": 30,
+    "Sakleshpur-Uppinangady": 40,
+    "Uppinangady-Mangalore": 50,
+    "Bengaluru-Mysuru": 140,
+    "Mysuru-Mandya": 45,
+    "Bengaluru-Tumkur": 70,
+    "Tumkur-Chitradurga": 80,
+    "Chitradurga-Davangere": 90,
+    "Davangere-Hubli": 100,
+    "Hubli-Belgaum": 110,
+    "Mangalore-Udupi": 60
+  };
+
+  const key = `${fromCity}-${toCity}`;
+  const reverseKey = `${toCity}-${fromCity}`;
+  const distance = mockDistances[key] || mockDistances[reverseKey] || 50;
+
+  // Average bus speed: 45 km/h
+  const avgSpeed = 45;
+  return Math.round((distance / avgSpeed) * 60); // in minutes
+}
+
+// Get multi-segment bus options
+async function getMultiSegmentBusOptions(originCity, destinationCity) {
+  try {
+    const route = findBusRoute(originCity, destinationCity);
+
+    if (!route || route.length < 2) {
+      return null; // No route found or direct route
+    }
+
+    // Create segments
+    const segments = [];
+    let totalFare = 0;
+    let totalTime = 0;
+
+    for (let i = 0; i < route.length - 1; i++) {
+      const fromCity = route[i];
+      const toCity = route[i + 1];
+      const fare = calculateSegmentFare(fromCity, toCity);
+      const time = estimateSegmentTime(fromCity, toCity);
+      const service = getBusService(fromCity, toCity);
+
+      segments.push({
+        from: fromCity,
+        to: toCity,
+        fare: fare,
+        time: time,
+        bus: service.name,
+        operator: service.operator,
+        crowdLevel: estimateCrowdLevel()
+      });
+
+      totalFare += fare;
+      totalTime += time;
+    }
+
+    // Add layover time between segments (30 minutes per change)
+    const layoverTime = (segments.length - 1) * 30;
+    totalTime += layoverTime;
+
+    return {
+      mode: 'bus',
+      type: 'multi-segment',
+      segments: segments,
+      totalFare: totalFare,
+      totalTime: totalTime,
+      numberOfChanges: segments.length - 1,
+      crowdLevel: estimateCrowdLevel(), // Overall crowd level
+      additionalInfo: `${segments.length - 1} bus change(s) required`
+    };
+
+  } catch (error) {
+    console.error('Multi-segment bus options error:', error);
+    return null;
   }
 }
 
@@ -202,16 +396,35 @@ router.post('/transportation/options', async (req, res) => {
       destination.lat, destination.lng
     );
     
+    // Extract city names from labels (simplified - in production, use geocoding reverse lookup)
+    const extractCityName = (location) => {
+      if (!location || !location.label) return null;
+      // Simple extraction - in production, use proper geocoding
+      const label = location.label.toLowerCase();
+      const cities = Object.keys(BUS_ROUTE_GRAPH);
+
+      for (const city of cities) {
+        if (label.includes(city.toLowerCase())) {
+          return city;
+        }
+      }
+      return null;
+    };
+
+    const originCity = extractCityName(origin);
+    const destinationCity = extractCityName(destination);
+
     // Get options for all modes in parallel
-    const [busOption, trainOption, taxiOption, flightOption] = await Promise.all([
+    const [busOption, trainOption, taxiOption, flightOption, multiSegmentBusOption] = await Promise.all([
       getBusOptions(origin, destination, distance),
       getTrainOptions(origin, destination, distance),
       getTaxiOptions(origin, destination, distance),
-      getFlightOptions(origin, destination, distance)
+      getFlightOptions(origin, destination, distance),
+      originCity && destinationCity ? getMultiSegmentBusOptions(originCity, destinationCity) : Promise.resolve(null)
     ]);
-    
+
     // Filter out null options
-    const options = [busOption, trainOption, taxiOption, flightOption].filter(opt => opt !== null);
+    const options = [busOption, trainOption, taxiOption, flightOption, multiSegmentBusOption].filter(opt => opt !== null);
     
     // Sort by cost (cheapest first)
     options.sort((a, b) => a.cost - b.cost);

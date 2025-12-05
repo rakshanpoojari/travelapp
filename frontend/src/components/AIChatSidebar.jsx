@@ -145,7 +145,7 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
   return (
     <aside
       ref={containerRef}
-      className="w-96 max-w-[90vw] h-full min-h-0 bg-slate-900 text-white shadow-2xl rounded-xl flex flex-col overflow-hidden"
+      className="w-96 max-w-[90vw] h-full min-h-0 bg-white/10 backdrop-blur-md text-white shadow-2xl rounded-xl flex flex-col overflow-hidden border border-white/20"
       style={{ cursor: isDragging ? 'grabbing' : 'default' }}
     >
       {/* Header / drag handle */}
@@ -162,7 +162,7 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
           <span className="ml-1 text-xs opacity-80"></span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={clearHistory} title="Clear conversation" className="text-sm opacity-90 hover:opacity-100">Clear</button>
+          <button onClick={clearHistory} title="Clear conversation" className="text-sm opacity-90 hover:opacity-100 hover:bg-white/20 px-2 py-1 rounded transition-all duration-200">Clear</button>
           <button
             onClick={() => {
               // collapse: move to right edge and shrink, simple UX
@@ -175,21 +175,21 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
               }
             }}
             title="Collapse"
-            className="text-sm opacity-90 hover:opacity-100"
+            className="text-sm opacity-90 hover:opacity-100 hover:bg-white/20 px-2 py-1 rounded transition-all duration-200"
           >Toggle</button>
         </div>
       </div>
 
       {/* Conversation area */}
-      <div className="flex-1 overflow-auto p-3 bg-slate-900 text-white">
+      <div className="flex-1 overflow-auto p-3 bg-white/5 backdrop-blur-sm text-white">
         <div className="flex flex-col gap-3">
           {messages.length === 0 && (
             <div className="text-sm text-slate-300">Say hi — your conversation will be saved locally.</div>
           )}
 
           {messages.map(m => (
-            <div key={m.id} className={`max-w-full break-words ${m.role === 'user' ? 'self-end text-right' : 'self-start text-left'}`}>
-              <div className={`${m.role === 'user' ? 'inline-block bg-sky-600 text-white rounded-xl px-3 py-2' : 'inline-block bg-slate-700 text-white rounded-xl px-3 py-2'}`}>
+            <div key={m.id} className={`max-w-full break-words animate-fade-in ${m.role === 'user' ? 'self-end text-right' : 'self-start text-left'}`}>
+              <div className={`${m.role === 'user' ? 'inline-block bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl px-3 py-2 shadow-lg' : 'inline-block bg-gradient-to-r from-slate-600 to-slate-800 text-white rounded-xl px-3 py-2 shadow-lg'}`}>
                 <div className="whitespace-pre-wrap">{m.text}</div>
               </div>
             </div>
@@ -199,7 +199,7 @@ export default function AIChatSidebar({ apiUrl = 'http://localhost:5000/api/gemi
       </div>
 
       {/* Footer input area */}
-      <div className="px-3 py-2 bg-slate-800 border-t border-slate-700">
+      <div className="px-3 py-2 bg-white/10 backdrop-blur-sm border-t border-white/20">
         <div className="flex items-end gap-2">
           <textarea
             aria-label="Type a message"

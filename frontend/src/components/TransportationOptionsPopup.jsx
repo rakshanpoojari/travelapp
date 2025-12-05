@@ -75,6 +75,54 @@ export default function TransportationOptionsPopup({
     return MODE_LABELS[mode] || mode.toUpperCase();
   };
 
+  const renderMultiSegmentBus = (option) => {
+    return (
+      <div className="space-y-3">
+        {/* Summary */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-semibold text-blue-800">Total Journey</span>
+            <span className="text-lg font-bold text-blue-800">{formatCost(option.totalFare)}</span>
+          </div>
+          <div className="flex justify-between text-sm text-blue-700">
+            <span>Total Time: {formatTime(option.totalTime)}</span>
+            <span>{option.numberOfChanges} bus change{option.numberOfChanges !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+
+        {/* Segments */}
+        {option.segments.map((segment, idx) => (
+          <div key={idx} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="font-medium text-gray-800">
+                  Segment {idx + 1}: {segment.from} → {segment.to}
+                </span>
+              </div>
+              <span className="font-semibold text-gray-800">{formatCost(segment.fare)}</span>
+            </div>
+
+            <div className="ml-4 space-y-1 text-sm text-gray-600">
+              <div>Bus: {segment.bus} ({segment.operator})</div>
+              <div>Time: {formatTime(segment.time)}</div>
+              <div className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${
+                  segment.crowdLevel === 'free' ? 'bg-green-500' :
+                  segment.crowdLevel === 'moderate' ? 'bg-orange-500' :
+                  'bg-red-500'
+                }`}></div>
+                <span className={CROWD_COLORS[segment.crowdLevel]}>
+                  Crowd: {CROWD_LABELS[segment.crowdLevel]}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10002]" onClick={onClose}>
       <div 
