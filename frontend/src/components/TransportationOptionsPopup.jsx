@@ -124,7 +124,7 @@ export default function TransportationOptionsPopup({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10002]" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[10002] pt-4" onClick={onClose}>
       <div 
         className="bg-white rounded-lg shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
@@ -163,9 +163,9 @@ export default function TransportationOptionsPopup({
                 <div
                   key={idx}
                   onClick={() => {
-                    console.log('Option selected:', option);
+                    console.log('Option selected:', option.mode);
                     if (onSelectMode) {
-                      console.log('Calling onSelectMode with:', option);
+                      console.log('Calling onSelectMode with:', option.mode);
                       onSelectMode(option);
                     }
                     onClose();

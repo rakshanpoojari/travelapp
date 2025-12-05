@@ -56,7 +56,7 @@ function App(){
             onRoutes={(r)=> setRoutes(r)}
             onLocationsChange={(loc) => setLocations(loc)}
             onSelectMode={(option) => {
-              console.log('App: Setting selected mode:', option);
+              console.log('App: Setting selected mode:', option.mode);
               setSelectedMode(option);
             }}
           />

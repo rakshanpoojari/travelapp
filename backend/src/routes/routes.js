@@ -78,8 +78,9 @@ function convertORSResponse(orsData, origin, destination) {
 
 // Directions endpoint - uses OpenRouteService (free) with fallback to Google if key is provided
 router.get('/directions', async (req, res) => {
+  const { origin, destination, mode } = req.query;
+
   try {
-    const { origin, destination, mode } = req.query;
     
     if (!origin || !destination) {
       return res.status(400).json({ error: 'origin and destination are required' });
@@ -130,10 +131,10 @@ router.get('/directions', async (req, res) => {
         'cycling-regular': 'cycling'
       };
       const osrmProfile = osrmProfileMap[profile] || 'driving';
-      const osrmUrl = `https://router.project-osrm.org/route/v1/${osrmProfile}/${originCoords[0]},${originCoords[1]};${destCoords[0]},${destCoords[1]}?overview=full&geometries=geojson`;
+      const osrmUrl = `https://routing.openstreetmap.de/routed-${osrmProfile}/route/v1/${osrmProfile}/${originCoords[0]},${originCoords[1]};${destCoords[0]},${destCoords[1]}?overview=full&geometries=geojson`;
       
       try {
-        const osrmResponse = await axios.get(osrmUrl, { timeout: 10000 });
+        const osrmResponse = await axios.get(osrmUrl, { timeout: 30000 });
         
         if (osrmResponse.data.code === 'Ok' && osrmResponse.data.routes && osrmResponse.data.routes.length > 0) {
           const osrmRoute = osrmResponse.data.routes[0];
@@ -181,7 +182,7 @@ router.get('/directions', async (req, res) => {
 
   } catch (err) {
     console.error('Directions error:', err.response?.data || err.message);
-    
+
     // If OpenRouteService fails and Google key exists, try Google as fallback
     if (GOOGLE_KEY && !err.response) {
       try {
@@ -192,11 +193,13 @@ router.get('/directions', async (req, res) => {
         console.error('Google fallback also failed:', googleErr.message);
       }
     }
-    
-    res.status(500).json({ 
+
+    // Return a valid response even on error to prevent 500
+    res.status(200).json({
+      status: 'ZERO_RESULTS',
+      routes: [],
       error: 'directions error',
-      message: err.response?.data?.error?.message || err.message,
-      status: 'REQUEST_DENIED'
+      message: err.response?.data?.error?.message || err.message
     });
   }
 });

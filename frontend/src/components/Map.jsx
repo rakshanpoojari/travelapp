@@ -112,7 +112,7 @@ export default function Map({ center = { lat: 12.97, lng: 77.59 }, routes = [], 
         const selectedColors = {
           'bus': '#3b82f6',      // blue - same as driving but specifically for bus
           'train': '#10b981',    // green
-          'taxi': '#eab308',     // yellow
+          'taxi': '#f97316',     // orange
           'flight': '#a855f7'    // purple
         };
         

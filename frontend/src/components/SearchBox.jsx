@@ -11,13 +11,16 @@ async function nominatimSearch(q) {
     const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
     if (!res.ok) return [];
     const data = await res.json();
-    return data.map(d => ({
-      label: d.display_name,
-      lat: parseFloat(d.lat),
-      lon: parseFloat(d.lon),
-      raw: d
-    }));
-  } catch (e) {
+    return data
+      .filter(d => d.lat && d.lon && !isNaN(parseFloat(d.lat)) && !isNaN(parseFloat(d.lon))) // Pre-filter valid data
+      .map(d => ({
+        label: d.display_name,
+        lat: parseFloat(d.lat),
+        lon: parseFloat(d.lon),
+        raw: d
+      }))
+      .filter(d => !isNaN(d.lat) && !isNaN(d.lon)); // Filter out invalid coordinates
+  } catch {
     return [];
   }
 }
@@ -63,30 +66,31 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
   }, [destQuery]);
 
   const pickOrigin = (s) => {
-    console.log('Picking origin:', s);
+    console.log('Picking origin:', s.label);
     // Normalize to use 'lng' instead of 'lon'
     const normalized = {
       lat: s.lat,
       lng: s.lon || s.lng,
       label: s.label
     };
-    
-    // Validate coordinates
-    if (!normalized.lat || !normalized.lng) {
+
+    console.log('About to validate origin:', normalized);
+    // Validate coordinates - check for valid numbers
+    if (isNaN(parseFloat(normalized.lat)) || isNaN(parseFloat(normalized.lng))) {
       console.error('Invalid origin coordinates:', normalized);
       alert('Invalid location coordinates. Please try another location.');
       return;
     }
-    
+
     setOriginSelected(normalized);
     setOriginQuery(s.label);
     setOriginSuggestions([]);
-    
+
     // Update input value directly
     if (originRef.current) {
       originRef.current.value = s.label;
     }
-    
+
     // Notify parent about location change
     if (onLocationsChange) {
       onLocationsChange({
@@ -94,42 +98,42 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
         destination: destSelected ? { lat: destSelected.lat, lng: destSelected.lng || destSelected.lon, label: destSelected.label } : null
       });
     }
-    
-    console.log('Origin selected:', normalized);
+
+    console.log('Origin selected:', { lat: normalized.lat, lng: normalized.lng, label: normalized.label });
   };
 
   const pickDest = (s) => {
-    console.log('Picking destination:', s);
+    console.log('Picking destination:', s.label);
     // Normalize to use 'lng' instead of 'lon'
     const normalized = {
       lat: s.lat,
       lng: s.lon || s.lng,
       label: s.label
     };
-    
-    // Validate that we have valid coordinates
-    if (!normalized.lat || !normalized.lng) {
+
+    // Validate coordinates - check for valid numbers
+    if (isNaN(parseFloat(normalized.lat)) || isNaN(parseFloat(normalized.lng))) {
       console.error('Invalid destination coordinates:', normalized);
       alert('Invalid location coordinates. Please try another location.');
       return;
     }
-    
+
     setDestSelected(normalized);
     setDestQuery(s.label);
     setDestSuggestions([]);
-    
+
     // Update input value directly
     if (destRef.current) {
       destRef.current.value = s.label;
     }
-    
+
     // Normalize origin if it exists
     const normalizedOrigin = originSelected ? {
       lat: originSelected.lat,
       lng: originSelected.lng || originSelected.lon,
       label: originSelected.label
     } : null;
-    
+
     // Notify parent about location change
     if (onLocationsChange) {
       onLocationsChange({
@@ -137,8 +141,8 @@ export default function SearchBox({ onRoutes, onLocationsChange, onSelectMode })
         destination: normalized
       });
     }
-    
-    console.log('Destination selected:', normalized);
+
+    console.log('Destination selected:', { lat: normalized.lat, lng: normalized.lng, label: normalized.label });
   };
 
   const search = async () => {
